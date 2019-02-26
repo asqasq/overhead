@@ -26,14 +26,14 @@ function remove_assets() {
 	
 	# Delete rules 
 	for i in $(seq 1 $delcount); do
-    		wsk rule delete testRule_$i $@;
+        wsk -i rule delete testRule_$i $@;
 	done
 
 	# Delete trigger
-	wsk trigger delete testTrigger $@
+	wsk -i trigger delete testTrigger $@
 
 	# Delete action
-	wsk action delete testAction $@
+	wsk -i action delete testAction $@
 
 }
 
@@ -41,14 +41,14 @@ function remove_assets() {
 function deploy_assets() {
 
 	# Create action
-	wsk action create testAction testAction.js --kind nodejs:8 $@
+	wsk -i action create testAction testAction.js --kind nodejs:8 $@
 
 	# Create trigger after deleting it
-	wsk trigger create testTrigger $@
+	wsk -i trigger create testTrigger $@
 
 	# Create rules
 	for i in $(seq 1 $count); do
-    		wsk rule create testRule_$i testTrigger testAction $@;
+        wsk -i rule create testRule_$i testTrigger testAction $@;
 	done
 
 }
