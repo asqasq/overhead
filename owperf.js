@@ -524,7 +524,7 @@ function processSample(sample, activation) {
 	const bi = sample.bi;
 
 	if (bi < measurementTime.start || bi > measurementTime.stop)	{	// BI outside time frame. No further processing.
-		mLog(`Sample discarded. BI exceeds measurement time frame`);
+		mLog(`Sample discarded. BI exceeds measurement time frame: ${bi} < ${measurementTime.start} || ${bi} > ${measurementTime.stop}`);
 		return;
 	}
 
@@ -566,7 +566,7 @@ function processSample(sample, activation) {
 	const d = parseInt(activation.response.result.duration);
 
 	if (as < measurementTime.start || ae > measurementTime.stop) {	// got activation, but it exceeds the time frame. No further processing.
-		mLog(`Sample discarded. Action activation exceeded measurement time frame.`)
+		mLog(`Sample discarded. Action activation exceeded measurement time frame: ${as} < ${measurementTime.start} || ${ae} > ${measurementTime.stop}`)
 		return;
 	}
 
