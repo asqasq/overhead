@@ -9,6 +9,7 @@ const cluster = require('cluster');
 const openwhisk = require('openwhisk');
 const program = require('commander');
 const exec = require('node-exec-promise').exec;
+const sqlite3 = require('sqlite3').verbose();
 
 const ACTION = "action";
 const RULE = "rule";
@@ -41,7 +42,8 @@ program
 	.option('-S --no-setup', "Skip test setup (so use previous setup)")
 	.option('-T --no-teardown', "Skip test teardown (to allow setup reuse)")
 	.option('-f --config_file <filepath>', "Specify a wskprops configuration file to use", `${process.env.HOME}/.wskprops`)
-	.option('-q, --quiet', "Suppress progress information on stderr");
+	.option('-q, --quiet', "Suppress progress information on stderr")
+  .option('-3, --sql <dbfilename>', "Store measurement values in sqlite3 database file");
 
 program.parse(process.argv);
 
@@ -50,6 +52,13 @@ var testRecord = {input: {}, output: {}};	// holds the final test data
 for (var opt in program.opts())
 	if (typeof program[opt] != 'function') 
 		testRecord.input[opt] = program[opt];
+
+// if sql is set, connect to DB file
+if (testRecord.input.sql) {
+  mLog(`CONNECT TO DATABASE ${testRecord.input.sql}\n`);
+} else {
+  mLog("Do not store measurements to database.\n");
+}
 
 // If neither period nor iterations are set, then period is set by default to 1000 msec
 if (!testRecord.input.iterations && !testRecord.input.period)
