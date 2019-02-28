@@ -56,6 +56,7 @@ for (var opt in program.opts())
 // if sql is set, connect to DB file
 if (testRecord.input.sql) {
   mLog(`CONNECT TO DATABASE ${testRecord.input.sql}\n`);
+  testRecord.input.sqldb = connectToDB(testRecord.input.sql);
 } else {
   mLog("Do not store measurements to database.\n");
 }
@@ -117,6 +118,13 @@ if (cluster.isMaster)
 	runMaster();
 else
 	runWorker();
+
+if (testRecord.input.sql) {
+  mLog(`CLOSE database\n`);
+  closeDB(testRecord.input.sqldb);
+} else {
+  mLog('No need to close database');
+}
 
 // -------- END OF MAIN -------------
 
@@ -854,3 +862,27 @@ function dfsObject(data, func, allowInherited = false) {
 			}
 	} 
 }
+
+function connectToDB(databaseName) {
+	// open the database
+	let db = new sqlite3.Database(databaseName, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
+  	if (err) {
+    	console.log('bloed');
+    	console.error(err.message);
+  	}
+  	console.log('Connected to the database.');
+	});
+  return db;
+}
+
+
+function closeDB(database) {
+	database.close((err) => {
+  	if (err) {
+    	console.log('bloeder');
+    	console.error(err.message);
+  	}
+  	console.log('Close the database connection.');
+	});
+}
+
