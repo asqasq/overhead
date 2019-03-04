@@ -53,6 +53,7 @@ for (var opt in program.opts())
 	if (typeof program[opt] != 'function') 
 		testRecord.input[opt] = program[opt];
 
+/*
 // if sql is set, connect to DB file
 if (testRecord.input.sql) {
   mLog(`CONNECT TO DATABASE ${testRecord.input.sql}\n`);
@@ -60,6 +61,7 @@ if (testRecord.input.sql) {
 } else {
   mLog("Do not store measurements to database.\n");
 }
+*/
 
 // If neither period nor iterations are set, then period is set by default to 1000 msec
 if (!testRecord.input.iterations && !testRecord.input.period)
@@ -119,12 +121,17 @@ if (cluster.isMaster)
 else
 	runWorker();
 
+
+
+/*
 if (testRecord.input.sql) {
   mLog(`CLOSE database\n`);
   closeDB(testRecord.input.sqldb);
 } else {
   mLog('No need to close database');
 }
+*/
+
 
 // -------- END OF MAIN -------------
 
@@ -169,6 +176,9 @@ function runMaster() {
 
 		mainLoop().then(() => {
 
+      sql_open_db().then((db) => {
+
+
 			// set finish of measurement and notify all other workers
 			measurementTime.stop = new Date().getTime();
 			testRecord.output.measure_time = (measurementTime.stop - measurementTime.start) / 1000.0;	// measurement duration converted to seconds
@@ -192,6 +202,8 @@ function runMaster() {
 					});
 				});
 		});
+    sql_close_db();
+    });
 
 	});
 
@@ -863,9 +875,12 @@ function dfsObject(data, func, allowInherited = false) {
 	} 
 }
 
-function connectToDB(databaseName) {
+async function sql_open_db(databaseName) {
     var p = new Promise((resolve, reject) => {
-        // open the database
+        // if sql is set, connect to DB file
+        if (testRecord.input.sql) {
+          mLog(`CONNECT TO DATABASE ${testRecord.input.sql}\n`);
+
         let db = new sqlite3.Database(databaseName, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
         if (err) {
             console.log('bloed');
@@ -875,13 +890,18 @@ function connectToDB(databaseName) {
         console.log('Connected to the database.');
         resolve(db);
         });
+        } else {
+          mLog("Do not store measurements to database.\n");
+          resolve(testRecord.input.sql);
+        // open the database
+        }
     });
     var db = await p;
     return db;
 }
 
 
-function closeDB(database) {
+function sql_close_db(database) {
 	database.close((err) => {
     if (err) {
         console.log('bloeder');
