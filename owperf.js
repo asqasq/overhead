@@ -864,25 +864,146 @@ function dfsObject(data, func, allowInherited = false) {
 }
 
 function connectToDB(databaseName) {
-	// open the database
-	let db = new sqlite3.Database(databaseName, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
-  	if (err) {
-    	console.log('bloed');
-    	console.error(err.message);
-  	}
-  	console.log('Connected to the database.');
-	});
-  return db;
+    var p = new Promise((resolve, reject) => {
+        // open the database
+        let db = new sqlite3.Database(databaseName, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
+        if (err) {
+            console.log('bloed');
+            console.error(err.message);
+            reject(err);
+        }
+        console.log('Connected to the database.');
+        resolve(db);
+        });
+    });
+    var db = await p;
+    return db;
 }
 
 
 function closeDB(database) {
 	database.close((err) => {
-  	if (err) {
-    	console.log('bloeder');
-    	console.error(err.message);
-  	}
-  	console.log('Close the database connection.');
-	});
+    if (err) {
+        console.log('bloeder');
+        console.error(err.message);
+    }
+    console.log('Close the database connection.');
+    });
 }
+
+
+
+async function sql_get_next_id(db) {
+    var p2;
+    var p = new Promise((resolve, reject) => {
+        db.run('INSERT INTO experimentId(experimentDate) VALUES(CURRENT_TIMESTAMP);', function(err) {
+            if (err) {
+                console.log("\n\n*******************\n\n");
+                console.log(err.message);
+                reject(err);
+            }
+            console.log(`A row has been inserted with rowid ${this.lastID}`);
+            resolve(0);
+        });
+    });
+    await p;
+    p2 = new Promise((resolve, reject) => {
+        db.serialize(() => {
+          db.each('SELECT last_insert_rowid() as id;', (err, row) => {
+            if (err) {
+              console.log("\n\n----------------------\n\n");
+              console.error(err.message);
+              reject(err);
+            }
+            console.log("ROW:" + row.id + "\n");
+            resolve(row.id);
+          });
+        });
+    });
+
+    const id = await p2;
+    console.log(`last ID = ${id}`);
+
+    return id;
+}
+
+
+/******************************************************************************/
+/* create database tables */
+
+function sql_create_table_1() {
+    return new Promise((resolve, reject) => {
+        db.run('CREATE TABLE IF NOT EXISTS workersamples(experimentId INTEGER);', function(err) {
+                if (err) {
+                    console.log(err.message);
+                    reject(err);
+                } else {
+                    console.log('table created');
+                    resolve(1);
+                }
+        });
+    });
+}
+
+
+
+
+function sql_create_table_2() {
+    return new Promise((resolve, reject) => {
+        db.run('CREATE TABLE IF NOT EXISTS summaries(experimentId INTEGER, \
+                 avg FLOAT, FOREIGN KEY(experimentId) REFERENCES experimentId(id));', function(err) {
+                if (err) {
+                    console.log(err.message);
+                    reject(err);
+                } else {
+                    console.log('table created');
+                    resolve(2);
+                }
+        });
+    });
+}
+
+function sql_create_table_3() {
+    return new Promise((resolve, reject) => {
+        db.run('CREATE TABLE IF NOT EXISTS experimentId(id INTEGER PRIMARY KEY AUTOINCREMENT, experimentDate DATE);', function(err) {
+                if (err) {
+                    console.log(err.message);
+                    reject(err);
+                }
+                console.log('table created');
+                resolve(3);
+        });
+    });
+
+}
+
+
+function sql_create_table_4() {
+    return new Promise((resolve, reject) => {
+        db.run('CREATE TABLE IF NOT EXISTS summaries(experimentId INTEGER, \
+                 avg FLOAT, FOREIGN KEY(experimentId) REFERENCES experimentId(id));', function(err) {
+                if (err) {
+                    console.log(err.message);
+                    reject(err);
+                } else {
+                    console.log('table created');
+                    resolve(4);
+                }
+        });
+    });
+}
+
+
+async function sql_create_tables() {
+    await sql_create_table_1();
+    await sql_create_table_2();
+    await sql_create_table_3();
+    await sql_create_table_4();
+
+    console.log("Tables created");
+
+    return sum;
+}
+
+/******************************************************************************/
 
