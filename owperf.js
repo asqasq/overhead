@@ -195,6 +195,7 @@ function runMaster() {
 						// The master's workerData
 						workerData[0] = {lat: latCounters, tp: tpCounters};
 						checkSummary();
+    sql_close_db(db);
 					})
 					.catch(err => {	// FATAL - shouldn't happen unless BUG
 						mLog(`Post-process ERROR in MASTER: ${err}`);
@@ -202,7 +203,7 @@ function runMaster() {
 					});
 				});
 		});
-    sql_close_db();
+
     });
 
 	});
@@ -875,13 +876,13 @@ function dfsObject(data, func, allowInherited = false) {
 	} 
 }
 
-async function sql_open_db(databaseName) {
+async function sql_open_db() {
     var p = new Promise((resolve, reject) => {
         // if sql is set, connect to DB file
         if (testRecord.input.sql) {
           mLog(`CONNECT TO DATABASE ${testRecord.input.sql}\n`);
 
-        let db = new sqlite3.Database(databaseName, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
+        let db = new sqlite3.Database(testRecord.input.sql, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
         if (err) {
             console.log('bloed');
             console.error(err.message);
@@ -902,13 +903,17 @@ async function sql_open_db(databaseName) {
 
 
 function sql_close_db(database) {
-	database.close((err) => {
+  if (database) {
+	  database.close((err) => {
     if (err) {
         console.log('bloeder');
         console.error(err.message);
     }
     console.log('Close the database connection.');
     });
+  } else {
+    console.log('Database WAS closed.');
+  }
 }
 
 
