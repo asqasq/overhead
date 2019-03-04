@@ -43,7 +43,8 @@ program
 	.option('-T --no-teardown', "Skip test teardown (to allow setup reuse)")
 	.option('-f --config_file <filepath>', "Specify a wskprops configuration file to use", `${process.env.HOME}/.wskprops`)
 	.option('-q, --quiet', "Suppress progress information on stderr")
-  .option('-3, --sql <dbfilename>', "Store measurement values in sqlite3 database file");
+  .option('-3, --sql <dbfilename>', "Store measurement values in sqlite3 database file")
+  .option('-g, --gigabits <Gbit/s>', "The network speed for this experiment in Gbit/s", parseIntDef, 1);
 
 program.parse(process.argv);
 
@@ -177,6 +178,8 @@ function runMaster() {
 		mainLoop().then(() => {
 
       sql_open_db().then((db) => {
+        sql_create_tables(db).then(() => {
+          sql_get_next_id(db, testRecord.input.gigabits).then((expId) => {
 
 
 			// set finish of measurement and notify all other workers
@@ -204,6 +207,8 @@ function runMaster() {
 				});
 		});
 
+    });
+    });
     });
 
 	});
@@ -918,10 +923,10 @@ function sql_close_db(database) {
 
 
 
-async function sql_get_next_id(db) {
+async function sql_get_next_id(db, gigabits) {
     var p2;
     var p = new Promise((resolve, reject) => {
-        db.run('INSERT INTO experimentId(experimentDate) VALUES(CURRENT_TIMESTAMP);', function(err) {
+        db.run('INSERT INTO experimentId(experimentDate, gigabits) VALUES(CURRENT_TIMESTAMP, ?);', [gigabits], function(err) {
             if (err) {
                 console.log("\n\n*******************\n\n");
                 console.log(err.message);
@@ -956,7 +961,7 @@ async function sql_get_next_id(db) {
 /******************************************************************************/
 /* create database tables */
 
-function sql_create_table_1() {
+function sql_create_table_1(db) {
     return new Promise((resolve, reject) => {
         db.run('CREATE TABLE IF NOT EXISTS workersamples(experimentId INTEGER);', function(err) {
                 if (err) {
@@ -973,7 +978,7 @@ function sql_create_table_1() {
 
 
 
-function sql_create_table_2() {
+function sql_create_table_2(db) {
     return new Promise((resolve, reject) => {
         db.run('CREATE TABLE IF NOT EXISTS summaries(experimentId INTEGER, \
                  avg FLOAT, FOREIGN KEY(experimentId) REFERENCES experimentId(id));', function(err) {
@@ -988,9 +993,10 @@ function sql_create_table_2() {
     });
 }
 
-function sql_create_table_3() {
+function sql_create_table_3(db) {
     return new Promise((resolve, reject) => {
-        db.run('CREATE TABLE IF NOT EXISTS experimentId(id INTEGER PRIMARY KEY AUTOINCREMENT, experimentDate DATE);', function(err) {
+        db.run('CREATE TABLE IF NOT EXISTS experimentId(id INTEGER PRIMARY KEY AUTOINCREMENT, experimentDate DATE, \
+                gigabits INTEGER);', function(err) {
                 if (err) {
                     console.log(err.message);
                     reject(err);
@@ -1003,7 +1009,7 @@ function sql_create_table_3() {
 }
 
 
-function sql_create_table_4() {
+function sql_create_table_4(db) {
     return new Promise((resolve, reject) => {
         db.run('CREATE TABLE IF NOT EXISTS summaries(experimentId INTEGER, \
                  avg FLOAT, FOREIGN KEY(experimentId) REFERENCES experimentId(id));', function(err) {
@@ -1019,15 +1025,17 @@ function sql_create_table_4() {
 }
 
 
-async function sql_create_tables() {
-    await sql_create_table_1();
-    await sql_create_table_2();
-    await sql_create_table_3();
-    await sql_create_table_4();
+async function sql_create_tables(db) {
+    if (db) {
+      await sql_create_table_1(db);
+      await sql_create_table_2(db);
+      await sql_create_table_3(db);
+      await sql_create_table_4(db);
 
-    console.log("Tables created");
+      console.log("Tables created");
+    }
 
-    return sum;
+    return;
 }
 
 /******************************************************************************/
