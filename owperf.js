@@ -117,21 +117,29 @@ var workerData = [];	// holds data for each worker, at [1..#workers]. Master's e
 
 const activity = ((cluster.isWorker || !testRecord.input.master_activity) ? testRecord.input.activity : testRecord.input.master_activity);
 
-if (cluster.isMaster) 
-	runMaster();
-else
-	runWorker();
+if (cluster.isMaster) {
+    sql_open_db().then((db) => {
+        sql_create_tables(db).then(() => {
+          sql_create_experimentId(db).then((expId) => {
+            sql_get_next_id(db, testRecord.input.gigabits).then((expId) => {
+              testRecord.input.db = db;
+              testRecord.input.expId = expId;
 
-
-
-/*
-if (testRecord.input.sql) {
-  mLog(`CLOSE database\n`);
-  closeDB(testRecord.input.sqldb);
+              runMaster();
+            });
+          });
+        });
+    });
 } else {
-  mLog('No need to close database');
+    sql_open_db().then((db) => {
+      sql_get_next_id(db, testRecord.input.gigabits).then((expId) => {
+        testRecord.input.db = db;
+        testRecord.input.expId = expId;
+
+        runWorker();
+      });
+    });
 }
-*/
 
 
 // -------- END OF MAIN -------------
@@ -143,6 +151,8 @@ function runMaster() {
 
 	// Setup OpenWhisk assets for the test
 	testSetup().then(() => {
+
+
 
 		// Start workers, configure interaction
 		for(var i = 0; i < testRecord.input.workers; i++) {
@@ -177,11 +187,6 @@ function runMaster() {
 
 		mainLoop().then(() => {
 
-      sql_open_db().then((db) => {
-        sql_create_tables(db).then(() => {
-          sql_get_next_id(db, testRecord.input.gigabits).then((expId) => {
-
-
 			// set finish of measurement and notify all other workers
 			measurementTime.stop = new Date().getTime();
 			testRecord.output.measure_time = (measurementTime.stop - measurementTime.start) / 1000.0;	// measurement duration converted to seconds
@@ -198,7 +203,7 @@ function runMaster() {
 						// The master's workerData
 						workerData[0] = {lat: latCounters, tp: tpCounters};
 						checkSummary();
-    sql_close_db(db);
+            sql_close_db(testRecord.input.db);
 					})
 					.catch(err => {	// FATAL - shouldn't happen unless BUG
 						mLog(`Post-process ERROR in MASTER: ${err}`);
@@ -207,9 +212,6 @@ function runMaster() {
 				});
 		});
 
-    });
-    });
-    });
 
 	});
 
@@ -283,16 +285,20 @@ function runWorker() {
 	mainLoop().then(() => {
 		sleep(testRecord.input.pp_delay)
 			.then(() => {
-				postProcess()
-					.then(() => {
-						process.send({summary:{lat: latCounters, tp:tpCounters}});
-						process.exit();
-					})
-					.catch(err => {	// shouldn't happen unless BUG
-						mLog(`Post-process ERROR in WORKER: ${err}`);
-						throw err;
-					});
-				});
+        sleep(cluster.worker.id * 1000)
+          .then(() => {
+            postProcess()
+              .then(() => {
+                process.send({summary:{lat: latCounters, tp:tpCounters}});
+                sql_close_db(testRecord.input.db);
+                process.exit();
+              })
+              .catch(err => {	// shouldn't happen unless BUG
+                mLog(`Post-process ERROR in WORKER: ${err}`);
+                throw err;
+              });
+				  });
+      });
 	});
 }
 
@@ -635,6 +641,10 @@ function processSample(sample, activation) {
 	updateLatSample("ortt", ortt);
 
 	mLog(`${bi},\t${as},\t${ae},\t${ts},\t${ta},\t${oea},\t${oer},\t${d},\t${ad},\t${ai},\t${ora},\t${rtt},\t${ortt}`);
+
+  if (testRecord.input.sql) {
+    sql_insert_workersample(testRecord.input.db, testRecord.input.expId, bi, as, ae, ts, ta, oea, oer, d, ad, ai, ora, rtt, ortt);
+  }
 }
 
 /**
@@ -909,6 +919,7 @@ async function sql_open_db() {
 
 function sql_close_db(database) {
   if (database) {
+    mLog("Closing database...");
 	  database.close((err) => {
     if (err) {
         console.log('bloeder');
@@ -923,23 +934,29 @@ function sql_close_db(database) {
 
 
 
-async function sql_get_next_id(db, gigabits) {
-    var p2;
-    var p = new Promise((resolve, reject) => {
-        db.run('INSERT INTO experimentId(experimentDate, gigabits) VALUES(CURRENT_TIMESTAMP, ?);', [gigabits], function(err) {
-            if (err) {
-                console.log("\n\n*******************\n\n");
-                console.log(err.message);
-                reject(err);
-            }
-            console.log(`A row has been inserted with rowid ${this.lastID}`);
-            resolve(0);
-        });
-    });
-    await p;
+async function sql_create_experimentId(db, gigabits) {
+    if (db) {
+      var p2;
+      var p = new Promise((resolve, reject) => {
+          db.run('INSERT INTO experimentId(experimentDate, gigabits) VALUES(CURRENT_TIMESTAMP, ?);', [gigabits], function(err) {
+              if (err) {
+                  console.log("\n\n*******************\n\n");
+                  console.log(err.message);
+                  reject(err);
+              }
+              console.log(`A row has been inserted with rowid ${this.lastID}`);
+              resolve(0);
+          });
+      });
+      await p;
+  }
+  return;
+}
+
+async function sql_get_next_id(db) {
     p2 = new Promise((resolve, reject) => {
         db.serialize(() => {
-          db.each('SELECT last_insert_rowid() as id;', (err, row) => {
+          db.each('SELECT id from experimentId order by id desc limit 1;', (err, row) => {
             if (err) {
               console.log("\n\n----------------------\n\n");
               console.error(err.message);
@@ -963,7 +980,21 @@ async function sql_get_next_id(db, gigabits) {
 
 function sql_create_table_1(db) {
     return new Promise((resolve, reject) => {
-        db.run('CREATE TABLE IF NOT EXISTS workersamples(experimentId INTEGER);', function(err) {
+        db.run('CREATE TABLE IF NOT EXISTS workersamples(experimentId INTEGER, \
+                bi INTEGER, \
+                asv INTEGER, \
+                ae INTEGER, \
+                ts INTEGER, \
+                ta INTEGER, \
+                oea INTEGER, \
+                oer INTEGER, \
+                d INTEGER, \
+                ad INTEGER, \
+                ai INTEGER, \
+                ora INTEGER, \
+                rtt INTEGER, \
+                ortt INTEGER, \
+                FOREIGN KEY(experimentId) REFERENCES experimentId(id));', function(err) {
                 if (err) {
                     console.log(err.message);
                     reject(err);
@@ -1039,4 +1070,22 @@ async function sql_create_tables(db) {
 }
 
 /******************************************************************************/
+
+function sql_insert_workersample(db, expId, trycnt, bi, as, ae, ts, ta, oea, oer, d, ad, ai, ora, rtt, ortt) {
+    db.run('INSERT INTO workersamples(experimentId, bi, asv, ae, ts, ta, oea, oer, d, ad, ai, ora, rtt, ortt) \
+           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?);', [expId, bi, as, ae, ts, ta, oea, oer, d, ad, ai, ora, rtt, ortt], function(err) {
+      if (err) {
+        mLog("Error inserting workersample" + err.message);
+        //console.log("Error insertint workersample" + err.message);
+        if (trycnt < 50) {
+          sql_insert_workersample(db, expId, trycnt + 1, bi, as, ae, ts, ta, oea, oer, d, ad, ai, ora, rtt, ortt);
+        } else {
+          mLog("SQL is busy for more than 50 times. giving up for this sample.");
+        }
+        return;
+      } else {
+        return;
+      }
+    });
+}
 
