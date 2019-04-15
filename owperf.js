@@ -776,6 +776,8 @@ function computErrorStats() {
  */
 function generateOutput() {
 	var first = true;
+  
+  console.log("+++++++++++++ GENERATING OUTPUT +++++++++++++++++++++\n");
 
 	// First, print header to stderr
 	dfsObject(testRecord, (name, data, isRoot, isObj) => {
@@ -787,6 +789,8 @@ function generateOutput() {
 		}
 	});
 	mWrite("\n");
+
+  console.log("################# GENERATING NUMBER OUTPUT #########################\n");
 
 	first = true;
 
@@ -801,6 +805,24 @@ function generateOutput() {
 			process.stdout.write(`${data}`);
 		}
 	});
+	process.stdout.write("\n");
+
+  console.log("||||||||||||||||||||||||||||||||||||||| Put into SQL ||||||||||||||||||||||||||||||||||||||\n");
+  columNames = [];
+  columnValues = [];
+	dfsObject(testRecord, (name, data, isRoot, isObj) => {
+		if (!isObj) {		// print leaf nodes
+			if (typeof data == 'number')	// round each number to 3 decimal digits
+				data = round(data, 3);
+      if (!data)
+        data = "NULL";
+      //console.log("INSERT INTO summarymeasurements(" + `${name}` + ") VALUES(" + `${data}` + ");");
+      n = name.replace(/\./g, "_");
+      columNames.push(`${n}`);
+      columnValues.push(`${data}`);
+		}
+	});
+  process.stdout.write("INSERT INTO summaryMeasurements(" + columNames + ") VALUES(" + columnValues + ");");
 	process.stdout.write("\n");
 }
 
@@ -1055,6 +1077,101 @@ function sql_create_table_4(db) {
     });
 }
 
+function sql_create_table_5(db) {
+    return new Promise((resolve, reject) => {
+        db.run('CREATE TABLE IF NOT EXISTS measurementSummary( \
+                input_activity TEXT, \
+                input_blocking TEXT, \
+                input_delta REAL, \
+                input_iterations REAL, \
+                input_period REAL, \
+                input_ratio REAL, \
+                input_parameter_size REAL, \
+                input_workers REAL, \
+                input_master_activity TEXT, \
+                input_master_blocking TEXT, \
+                input_master_delta REAL, \
+                input_warmup REAL, \
+                input_delay REAL, \
+                input_pp_delay REAL, \
+                input_burst_timing REAL, \
+                input_setup INTEGER, \
+                input_teardown INTEGER, \
+                input_config_file TEXT, \
+                input_quiet INTEGER, \
+                input_sql TEXT, \
+                input_gigabits REAL, \
+                input_master_apart REAL, \
+                input_db_open INTEGER, \
+                input_db_filename TEXT, \
+                input_db_mode REAL, \
+                input_db_domain REAL, \
+                input_db__events REAL, \
+                input_db__maxListeners REAL, \
+                input_expId INTEGER, \
+                output_measure_time REAL, \
+                output_ta_avg REAL, \
+                output_ta_std REAL, \
+                output_ta_min REAL, \
+                output_ta_max REAL, \
+                output_oea_avg REAL, \
+                output_oea_std REAL, \
+                output_oea_min REAL, \
+                output_oea_max REAL, \
+                output_oer_avg REAL, \
+                output_oer_std REAL, \
+                output_oer_min REAL, \
+                output_oer_max REAL, \
+                output_d_avg REAL, \
+                output_d_std REAL, \
+                output_d_min REAL, \
+                output_d_max REAL, \
+                output_ad_avg REAL, \
+                output_ad_std REAL, \
+                output_ad_min REAL, \
+                output_ad_max REAL, \
+                output_ora_avg REAL, \
+                output_ora_std REAL, \
+                output_ora_min REAL, \
+                output_ora_max REAL, \
+                output_rtt_avg REAL, \
+                output_rtt_std REAL, \
+                output_rtt_min REAL, \
+                output_rtt_max REAL, \
+                output_ortt_avg REAL, \
+                output_ortt_std REAL, \
+                output_ortt_min REAL, \
+                output_ortt_max REAL, \
+                output_attempts_abs REAL, \
+                output_attempts_tp REAL, \
+                output_attempts_tpw REAL, \
+                output_attempts_tpd REAL, \
+                output_invocations_abs REAL, \
+                output_invocations_tp REAL, \
+                output_invocations_tpw REAL, \
+                output_invocations_tpd REAL, \
+                output_activations_abs REAL, \
+                output_activations_tp REAL, \
+                output_activations_tpw REAL, \
+                output_activations_tpd REAL, \
+                output_requests_abs REAL, \
+                output_requests_tp REAL, \
+                output_requests_tpw REAL, \
+                output_requests_tpd REAL, \
+                output_errors_abs REAL, \
+                output_errors_percent REAL \
+                );', function(err) {
+                if (err) {
+                    console.log(err.message);
+                    reject(err);
+                } else {
+                    console.log('table created');
+                    resolve(1);
+                }
+        });
+    });
+}
+
 
 async function sql_create_tables(db) {
     if (db) {
@@ -1062,6 +1179,7 @@ async function sql_create_tables(db) {
       await sql_create_table_2(db);
       await sql_create_table_3(db);
       await sql_create_table_4(db);
+      await sql_create_table_5(db);
 
       console.log("Tables created");
     }
