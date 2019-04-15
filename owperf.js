@@ -808,7 +808,7 @@ function generateOutput() {
 	process.stdout.write("\n");
 
   console.log("||||||||||||||||||||||||||||||||||||||| Put into SQL ||||||||||||||||||||||||||||||||||||||\n");
-  columNames = [];
+  columnNames = [];
   columnValues = [];
 	dfsObject(testRecord, (name, data, isRoot, isObj) => {
 		if (!isObj) {		// print leaf nodes
@@ -818,11 +818,12 @@ function generateOutput() {
         data = "NULL";
       //console.log("INSERT INTO summarymeasurements(" + `${name}` + ") VALUES(" + `${data}` + ");");
       n = name.replace(/\./g, "_");
-      columNames.push(`${n}`);
-      columnValues.push(`${data}`);
+      columnNames.push(`${n}`);
+      columnValues.push("\'" + `${data}` + "\'");
 		}
 	});
-  process.stdout.write("INSERT INTO summaryMeasurements(" + columNames + ") VALUES(" + columnValues + ");");
+  process.stdout.write("INSERT INTO summaryMeasurements(" + columnNames + ") VALUES(" + columnValues + ");");
+  sql_insert_summary(testRecord.input.db, testRecord.input.expId, columnNames, columnValues)
 	process.stdout.write("\n");
 }
 
@@ -1200,6 +1201,24 @@ function sql_insert_workersample(db, expId, trycnt, bi, as, ae, ts, ta, oea, oer
         } else {
           mLog("SQL is busy for more than 50 times. giving up for this sample.");
         }
+        return;
+      } else {
+        return;
+      }
+    });
+}
+
+function sql_insert_summary(db, expId, columnNames, columnValues) {
+    var q = "INSERT INTO measurementSummary(" + columnNames + ") VALUES(" + columnValues + ");";
+    db.run(q, [], function(err) {
+      if (err) {
+        mLog("Error inserting workersample" + err.message);
+        //console.log("Error insertint workersample" + err.message);
+//        if (trycnt < 50) {
+//          sql_insert_workersample(db, expId, trycnt + 1, bi, as, ae, ts, ta, oea, oer, d, ad, ai, ora, rtt, ortt);
+//        } else {
+//          mLog("SQL is busy for more than 50 times. giving up for this sample.");
+//        }
         return;
       } else {
         return;
