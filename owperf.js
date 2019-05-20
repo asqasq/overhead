@@ -822,9 +822,12 @@ function generateOutput() {
       columnValues.push("\'" + `${data}` + "\'");
 		}
 	});
-  process.stdout.write("INSERT INTO summaryMeasurements(" + columnNames + ") VALUES(" + columnValues + ");");
-  sql_insert_summary(testRecord.input.db, testRecord.input.expId, columnNames, columnValues)
-	process.stdout.write("\n");
+  sql_open_db().then((db) => {
+    process.stdout.write("INSERT INTO summaryMeasurements(" + columnNames + ") VALUES(" + columnValues + ");");
+    sql_insert_summary(db, testRecord.input.expId, columnNames, columnValues)
+	  process.stdout.write("\n");
+    sql_close_db(db);
+  });
 }
 
 
