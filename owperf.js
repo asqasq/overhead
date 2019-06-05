@@ -44,7 +44,8 @@ program
 	.option('-f --config_file <filepath>', "Specify a wskprops configuration file to use", `${process.env.HOME}/.wskprops`)
 	.option('-q, --quiet', "Suppress progress information on stderr")
   .option('-3, --sql <dbfilename>', "Store measurement values in sqlite3 database file")
-  .option('-g, --gigabits <Gbit/s>', "The network speed for this experiment in Gbit/s", parseIntDef, 1);
+  .option('-g, --gigabits <Gbit/s>', "The network speed for this experiment in Gbit/s", parseIntDef, 1)
+  .option('-I, --groupid <GroupID>', "The group ID for experiments belonging together", parseInt);
 
 program.parse(process.argv);
 
@@ -1113,6 +1114,7 @@ function sql_create_table_5(db) {
                 input_db__events REAL, \
                 input_db__maxListeners REAL, \
                 input_expId INTEGER, \
+                input_groupid REAL, \
                 output_measure_time REAL, \
                 output_ta_avg REAL, \
                 output_ta_std REAL, \
